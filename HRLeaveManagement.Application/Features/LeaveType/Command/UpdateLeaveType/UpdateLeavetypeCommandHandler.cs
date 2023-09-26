@@ -1,5 +1,8 @@
 ﻿using AutoMapper;
+using HRLeaveManagement.Application.Contracts.Logging;
 using HRLeaveManagement.Application.Contracts.Persistance;
+using HRLeaveManagement.Application.Exceptions;
+using HRLeaveManagement.Application.Features.LeaveType.Command.UpdateLeaveType;
 using MediatR;
 using System;
 using System.Collections.Generic;
@@ -9,19 +12,29 @@ using System.Threading.Tasks;
 
 namespace HRLeaveManagement.Application.Features.LeaveType.UpdateLeaveType
 {
-    public class UpdateLeavetypeCommandHandler : IRequestHandler<UpdateLeaveTypeCommand, Unit>
+    public class UpdateLeaveTypeCommandHandler : IRequestHandler<UpdateLeaveTypeCommand, Unit>
     {
         private readonly IMapper _mapper;
         private readonly ILeaveTypeRepository _leaveTypeRepository;
+        private readonly IAppLogger<UpdateLeaveTypeCommandHandler> _logger;
 
-        public UpdateLeavetypeCommandHandler(IMapper mapper,ILeaveTypeRepository leaveTypeRepository) 
+        public UpdateLeaveTypeCommandHandler(IMapper mapper,ILeaveTypeRepository leaveTypeRepository,IAppLogger<UpdateLeaveTypeCommandHandler> logger) 
         {
             _mapper = mapper;
             _leaveTypeRepository = leaveTypeRepository;
+            _logger = logger;
         }
         public async Task<Unit> Handle(UpdateLeaveTypeCommand request, CancellationToken cancellationToken)
         {
             // validate incoming data
+            var validator = new UpdateLeaveTypeCommandValidator(_leaveTypeRepository);
+            var validationResult = await validator.ValidateAsync(request);
+
+            if(validationResult.Errors.Any())
+            {
+                _logger.LogWarning("Validation errors in update request for {0} - {1}", nameof(LeaveType), request.Id);
+                throw new BadRequestException("Invalid Leave type", validationResult);
+            }
            
 
             // convert to domain entity object
